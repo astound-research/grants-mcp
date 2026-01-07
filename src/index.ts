@@ -174,7 +174,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const response = await axios.post<GrantsAPIResponse>(url, searchData, {
         headers: {
           'accept': 'application/json',
-          'X-Auth': API_KEY,
+          'X-Api-Key': API_KEY,
           'Content-Type': 'application/json'
         }
       });

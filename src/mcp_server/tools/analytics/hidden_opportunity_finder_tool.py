@@ -355,7 +355,7 @@ def register_hidden_opportunity_finder_tool(mcp: Any, context: Dict[str, Any]) -
                     "opportunities": opportunities,
                     "total_found": api_response.pagination_info.total_records,
                     "search_time": time.time() - start_time
-                }, ttl=1800)  # 30 minute cache for hidden opportunity analysis
+                })
             
             if not opportunities:
                 return "No opportunities found to analyze. Please adjust your search criteria."

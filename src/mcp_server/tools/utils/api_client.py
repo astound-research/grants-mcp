@@ -68,7 +68,7 @@ class SimplerGrantsAPIClient:
             timeout=httpx.Timeout(timeout),
             headers={
                 "accept": "application/json",
-                "X-Auth": api_key,
+                "X-Api-Key": api_key,
                 "Content-Type": "application/json",
             },
         )
