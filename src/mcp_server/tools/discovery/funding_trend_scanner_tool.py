@@ -6,10 +6,10 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.mcp_server.models.grants_schemas import GrantsAPIResponse, OpportunityV1
-from src.mcp_server.tools.utils.api_client import APIError, SimplerGrantsAPIClient
-from src.mcp_server.tools.utils.cache_manager import InMemoryCache
-from src.mcp_server.tools.utils.cache_utils import CacheKeyGenerator
+from mcp_server.models.grants_schemas import GrantsAPIResponse, OpportunityV1
+from mcp_server.tools.utils.api_client import APIError, SimplerGrantsAPIClient
+from mcp_server.tools.utils.cache_manager import InMemoryCache
+from mcp_server.tools.utils.cache_utils import CacheKeyGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -30,18 +30,16 @@ def analyze_temporal_trends(
     """
     now = datetime.now()
     cutoff_date = now - timedelta(days=time_window_days)
-    
-    trends = {
-        "posting_frequency": defaultdict(int),
-        "deadline_distribution": defaultdict(int),
-        "category_emergence": defaultdict(list),
-        "funding_velocity": {
-            "recent": 0,
-            "older": 0,
-            "acceleration": 0
-        },
-        "seasonal_patterns": defaultdict(int)
+
+    posting_frequency: Dict[str, int] = defaultdict(int)
+    deadline_distribution: Dict[str, int] = defaultdict(int)
+    category_emergence: Dict[str, Any] = defaultdict(list)
+    funding_velocity: Dict[str, float] = {
+        "recent": 0,
+        "older": 0,
+        "acceleration": 0
     }
+    seasonal_patterns: Dict[str, int] = defaultdict(int)
     
     recent_opportunities = []
     older_opportunities = []
@@ -59,17 +57,17 @@ def analyze_temporal_trends(
                 if post_date >= cutoff_date:
                     recent_opportunities.append(opp)
                     week_num = (now - post_date).days // 7
-                    trends["posting_frequency"][f"week_{week_num}"] += 1
+                    posting_frequency[f"week_{week_num}"] += 1
                 else:
                     older_opportunities.append(opp)
                 
                 # Track category emergence
                 if opp.category:
-                    trends["category_emergence"][opp.category].append(days_ago)
+                    category_emergence[opp.category].append(days_ago)
                 
                 # Seasonal patterns (by month)
                 month_name = post_date.strftime("%B")
-                trends["seasonal_patterns"][month_name] += 1
+                seasonal_patterns[month_name] += 1
                 
             except Exception as e:
                 logger.debug(f"Error parsing date for opportunity {opp.opportunity_id}: {e}")
@@ -81,13 +79,13 @@ def analyze_temporal_trends(
                 if close_date > now:
                     days_until = (close_date - now).days
                     if days_until <= 30:
-                        trends["deadline_distribution"]["30_days"] += 1
+                        deadline_distribution["30_days"] += 1
                     elif days_until <= 60:
-                        trends["deadline_distribution"]["60_days"] += 1
+                        deadline_distribution["60_days"] += 1
                     elif days_until <= 90:
-                        trends["deadline_distribution"]["90_days"] += 1
+                        deadline_distribution["90_days"] += 1
                     else:
-                        trends["deadline_distribution"]["90_plus_days"] += 1
+                        deadline_distribution["90_plus_days"] += 1
             except:
                 pass
     
@@ -101,32 +99,35 @@ def analyze_temporal_trends(
         for opp in older_opportunities
     )
     
-    trends["funding_velocity"]["recent"] = recent_funding
-    trends["funding_velocity"]["older"] = older_funding
-    
+    funding_velocity["recent"] = float(recent_funding)
+    funding_velocity["older"] = float(older_funding)
+
     if older_funding > 0:
-        trends["funding_velocity"]["acceleration"] = (
+        funding_velocity["acceleration"] = (
             (recent_funding - older_funding) / older_funding * 100
         )
-    
+
     # Identify emerging categories (those with increasing frequency)
-    for category, days_list in trends["category_emergence"].items():
-        if len(days_list) >= 3:
+    for category, days_list in list(category_emergence.items()):
+        if isinstance(days_list, list) and len(days_list) >= 3:
             # Check if postings are getting more recent
             sorted_days = sorted(days_list)
             if sorted_days[0] < sorted_days[-1] / 2:  # Recent activity is higher
-                trends["category_emergence"][category] = "emerging"
+                category_emergence[category] = "emerging"
             else:
-                trends["category_emergence"][category] = "stable"
-        else:
-            trends["category_emergence"][category] = "limited_data"
-    
-    # Convert defaultdicts to regular dicts
-    trends["posting_frequency"] = dict(trends["posting_frequency"])
-    trends["deadline_distribution"] = dict(trends["deadline_distribution"])
-    trends["seasonal_patterns"] = dict(trends["seasonal_patterns"])
-    trends["category_emergence"] = dict(trends["category_emergence"])
-    
+                category_emergence[category] = "stable"
+        elif isinstance(days_list, list):
+            category_emergence[category] = "limited_data"
+
+    # Build final trends dictionary
+    trends: Dict[str, Any] = {
+        "posting_frequency": dict(posting_frequency),
+        "deadline_distribution": dict(deadline_distribution),
+        "category_emergence": dict(category_emergence),
+        "funding_velocity": funding_velocity,
+        "seasonal_patterns": dict(seasonal_patterns)
+    }
+
     return trends
 
 
@@ -142,62 +143,60 @@ def identify_funding_patterns(
     Returns:
         Funding pattern analysis
     """
-    patterns = {
-        "funding_tiers": {
-            "micro": [],  # < $100k
-            "small": [],  # $100k - $500k
-            "medium": [],  # $500k - $1M
-            "large": [],  # $1M - $5M
-            "mega": []    # > $5M
-        },
-        "award_size_trends": defaultdict(list),
-        "funding_instruments": defaultdict(int),
-        "high_value_opportunities": [],
-        "best_roi_opportunities": []  # High funding, low competition
+    funding_tiers: Dict[str, List[OpportunityV1]] = {
+        "micro": [],  # < $100k
+        "small": [],  # $100k - $500k
+        "medium": [],  # $500k - $1M
+        "large": [],  # $1M - $5M
+        "mega": []    # > $5M
     }
-    
+    award_size_trends: Dict[str, Any] = defaultdict(list)
+    funding_instruments: Dict[str, int] = defaultdict(int)
+    high_value_opportunities: List[Dict[str, Any]] = []
+    best_roi_opportunities: List[Dict[str, Any]] = []
+
     for opp in opportunities:
         summary = opp.summary
-        
+
         # Categorize by funding tier
         if summary.award_ceiling:
             if summary.award_ceiling < 100000:
-                patterns["funding_tiers"]["micro"].append(opp)
+                funding_tiers["micro"].append(opp)
             elif summary.award_ceiling < 500000:
-                patterns["funding_tiers"]["small"].append(opp)
+                funding_tiers["small"].append(opp)
             elif summary.award_ceiling < 1000000:
-                patterns["funding_tiers"]["medium"].append(opp)
+                funding_tiers["medium"].append(opp)
             elif summary.award_ceiling < 5000000:
-                patterns["funding_tiers"]["large"].append(opp)
+                funding_tiers["large"].append(opp)
             else:
-                patterns["funding_tiers"]["mega"].append(opp)
-            
+                funding_tiers["mega"].append(opp)
+
             # Track award sizes by category
             if opp.category:
-                patterns["award_size_trends"][opp.category].append(summary.award_ceiling)
-        
+                award_size_trends[opp.category].append(summary.award_ceiling)
+
         # Track funding instruments
         if summary.funding_instrument:
-            patterns["funding_instruments"][summary.funding_instrument] += 1
-        
+            funding_instruments[summary.funding_instrument] += 1
+
         # Identify high-value opportunities
         if summary.estimated_total_program_funding and summary.estimated_total_program_funding > 1000000:
-            patterns["high_value_opportunities"].append({
+            high_value_opportunities.append({
                 "opportunity_id": opp.opportunity_id,
                 "title": opp.opportunity_title,
                 "total_funding": summary.estimated_total_program_funding,
                 "award_ceiling": summary.award_ceiling,
                 "close_date": summary.close_date
             })
-        
+
         # Identify best ROI opportunities (high funding, expected few awards)
-        if (summary.estimated_total_program_funding and 
+        if (summary.estimated_total_program_funding and
             summary.expected_number_of_awards and
             summary.expected_number_of_awards <= 5 and
             summary.estimated_total_program_funding > 500000):
-            
+
             avg_award = summary.estimated_total_program_funding / summary.expected_number_of_awards
-            patterns["best_roi_opportunities"].append({
+            best_roi_opportunities.append({
                 "opportunity_id": opp.opportunity_id,
                 "title": opp.opportunity_title,
                 "avg_award": avg_award,
@@ -206,36 +205,41 @@ def identify_funding_patterns(
             })
     
     # Calculate average award sizes by category
-    for category, amounts in patterns["award_size_trends"].items():
-        if amounts:
-            patterns["award_size_trends"][category] = {
+    for category, amounts in list(award_size_trends.items()):
+        if isinstance(amounts, list) and amounts:
+            award_size_trends[category] = {
                 "average": sum(amounts) / len(amounts),
                 "min": min(amounts),
                 "max": max(amounts),
                 "count": len(amounts)
             }
-    
+
     # Sort high-value and ROI opportunities
-    patterns["high_value_opportunities"].sort(
+    high_value_opportunities.sort(
         key=lambda x: x["total_funding"],
         reverse=True
     )
-    patterns["best_roi_opportunities"].sort(
+    best_roi_opportunities.sort(
         key=lambda x: x["avg_award"],
         reverse=True
     )
-    
+
     # Convert funding tiers to counts for summary
     tier_summary = {
-        tier: len(opps) 
-        for tier, opps in patterns["funding_tiers"].items()
+        tier: len(opps)
+        for tier, opps in funding_tiers.items()
     }
-    patterns["funding_tier_summary"] = tier_summary
-    
-    # Convert defaultdicts
-    patterns["funding_instruments"] = dict(patterns["funding_instruments"])
-    patterns["award_size_trends"] = dict(patterns["award_size_trends"])
-    
+
+    # Build final patterns dictionary
+    patterns: Dict[str, Any] = {
+        "funding_tiers": funding_tiers,
+        "award_size_trends": dict(award_size_trends),
+        "funding_instruments": dict(funding_instruments),
+        "high_value_opportunities": high_value_opportunities,
+        "best_roi_opportunities": best_roi_opportunities,
+        "funding_tier_summary": tier_summary,
+    }
+
     return patterns
 
 
@@ -251,13 +255,11 @@ def detect_emerging_topics(
     Returns:
         Emerging topics analysis
     """
-    topics = {
-        "keyword_frequency": defaultdict(int),
-        "category_combinations": defaultdict(int),
-        "emerging_themes": [],
-        "cross_cutting_themes": []
-    }
-    
+    keyword_frequency: Dict[str, int] = defaultdict(int)
+    category_combinations: Dict[str, int] = defaultdict(int)
+    emerging_themes: List[Dict[str, Any]] = []
+    cross_cutting_themes: List[Dict[str, Any]] = []
+
     # Common emerging technology and priority keywords
     emerging_keywords = [
         "artificial intelligence", "ai", "machine learning", "ml",
@@ -267,65 +269,69 @@ def detect_emerging_topics(
         "equity", "diversity", "inclusion", "underserved",
         "pandemic", "resilience", "supply chain", "infrastructure"
     ]
-    
-    keyword_occurrences = defaultdict(list)
-    
+
+    keyword_occurrences: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+
     for opp in opportunities:
         # Analyze title and description for keywords
-        text = (opp.opportunity_title + " " + 
+        text = (opp.opportunity_title + " " +
                 (opp.summary.summary_description or "") + " " +
                 (opp.category_explanation or "")).lower()
-        
+
         for keyword in emerging_keywords:
             if keyword in text:
-                topics["keyword_frequency"][keyword] += 1
+                keyword_frequency[keyword] += 1
                 keyword_occurrences[keyword].append({
                     "opportunity_id": opp.opportunity_id,
                     "title": opp.opportunity_title,
                     "category": opp.category
                 })
-        
+
         # Track category combinations
         if opp.category and opp.agency_code:
             combo = f"{opp.category}_{opp.agency_code}"
-            topics["category_combinations"][combo] += 1
-    
+            category_combinations[combo] += 1
+
     # Identify truly emerging themes (high frequency keywords)
     threshold = max(3, len(opportunities) * 0.05)  # At least 5% of opportunities
-    
-    for keyword, count in topics["keyword_frequency"].items():
+
+    for keyword, count in keyword_frequency.items():
         if count >= threshold:
-            topics["emerging_themes"].append({
+            emerging_themes.append({
                 "theme": keyword,
                 "frequency": count,
                 "percentage": (count / len(opportunities)) * 100,
                 "examples": keyword_occurrences[keyword][:3]  # Top 3 examples
             })
-    
+
     # Identify cross-cutting themes (keywords appearing across multiple categories)
     for keyword, occurrences in keyword_occurrences.items():
         categories = set(occ["category"] for occ in occurrences if occ.get("category"))
         if len(categories) >= 3:
-            topics["cross_cutting_themes"].append({
+            cross_cutting_themes.append({
                 "theme": keyword,
                 "categories": list(categories)[:5],
                 "reach": len(categories)
             })
-    
+
     # Sort by relevance
-    topics["emerging_themes"].sort(key=lambda x: x["frequency"], reverse=True)
-    topics["cross_cutting_themes"].sort(key=lambda x: x["reach"], reverse=True)
-    
-    # Convert defaultdicts
-    topics["keyword_frequency"] = dict(topics["keyword_frequency"])
-    topics["category_combinations"] = dict(
-        sorted(
-            topics["category_combinations"].items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:10]  # Top 10 combinations
-    )
-    
+    emerging_themes.sort(key=lambda x: x["frequency"], reverse=True)
+    cross_cutting_themes.sort(key=lambda x: x["reach"], reverse=True)
+
+    # Build final topics dictionary
+    topics: Dict[str, Any] = {
+        "keyword_frequency": dict(keyword_frequency),
+        "category_combinations": dict(
+            sorted(
+                category_combinations.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:10]  # Top 10 combinations
+        ),
+        "emerging_themes": emerging_themes,
+        "cross_cutting_themes": cross_cutting_themes,
+    }
+
     return topics
 
 
@@ -503,23 +509,23 @@ def register_funding_trend_scanner_tool(mcp: Any, context: Dict[str, Any]) -> No
             cached_result = cache.get(cache_key)
             if cached_result:
                 logger.info("Cache hit for funding trends analysis")
-                return cached_result["report"]
-            
+                return str(cached_result["report"])
+
             logger.info(f"Scanning funding trends (window={time_window_days} days)")
-            
+
             # Prepare filters
-            filters = {
+            filters: Dict[str, Any] = {
                 "opportunity_status": {
                     "one_of": ["posted"] if not include_forecasted else ["posted", "forecasted"]
                 }
             }
-            
+
             if category_filter:
                 filters["category"] = category_filter
-            
+
             if agency_filter:
                 filters["agency_code"] = agency_filter
-            
+
             if min_award_amount:
                 filters["award_ceiling"] = {"min": min_award_amount}
             

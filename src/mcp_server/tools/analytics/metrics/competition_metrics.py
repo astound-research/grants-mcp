@@ -19,7 +19,7 @@ class CompetitionIndexCalculator:
     based on historical data, funding amounts, and application patterns.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.constants = IndustryConstants()
     
     def calculate_basic_competition_index(

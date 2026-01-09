@@ -19,7 +19,7 @@ class TimingCalculator:
     and considers deadline competition factors.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.constants = IndustryConstants()
     
     def parse_deadline(self, close_date: Optional[str]) -> Optional[datetime]:

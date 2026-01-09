@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 class PortfolioOptimizer:
     """Optimize grant application portfolio using strategic planning algorithms."""
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         pass
     
     def categorize_opportunities(
@@ -81,7 +81,7 @@ class PortfolioOptimizer:
         Returns:
             Optimized timeline dictionary
         """
-        timeline = {
+        timeline: Dict[str, Any] = {
             'recommended_sequence': [],
             'timeline_months': {},
             'workload_distribution': {},
@@ -110,8 +110,8 @@ class PortfolioOptimizer:
         deadline_opportunities.sort(key=lambda x: x[0])
         
         # Optimize sequence with constraints
-        selected_opportunities = []
-        current_workload = {}
+        selected_opportunities: List[OpportunityV1] = []
+        current_workload: Dict[str, int] = {}
         
         for deadline, opp in deadline_opportunities:
             # Check if we can fit this opportunity
@@ -139,7 +139,7 @@ class PortfolioOptimizer:
     def _calculate_workload_distribution(self, opportunities: List[OpportunityV1]) -> Dict[str, float]:
         """Calculate workload distribution across selected opportunities."""
         total_estimated_hours = 0
-        distribution = {}
+        distribution: Dict[str, float] = {}
         
         for opp in opportunities:
             # Estimate hours based on award size (simplified)

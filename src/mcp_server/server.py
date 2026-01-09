@@ -60,7 +60,7 @@ class GrantsAnalysisServer:
         
         logger.info(f"Initialized {settings.server_name} v{settings.server_version}")
     
-    def _register_tools(self):
+    def _register_tools(self) -> None:
         """Register all available tools with the MCP server."""
         # Phase 1 & 2 Discovery Tools
         from mcp_server.tools.discovery.opportunity_discovery_tool import (
@@ -96,11 +96,11 @@ class GrantsAnalysisServer:
         
         logger.info("Registered all tools (Phase 1-3 complete)")
     
-    def _register_resources(self):
+    def _register_resources(self) -> None:
         """Register all available resources with the MCP server."""
-        
+
         @self.mcp.resource("grants://api/status")
-        async def get_api_status() -> str:
+        async def get_api_status() -> Dict[str, Any]:
             """Get current API status and health information."""
             try:
                 # Check API health
@@ -121,12 +121,12 @@ class GrantsAnalysisServer:
                 return {"error": str(e)}
         
         @self.mcp.resource("grants://cache/stats")
-        async def get_cache_stats() -> str:
+        async def get_cache_stats() -> Dict[str, Any]:
             """Get cache statistics."""
             return self.cache.get_stats()
         
         @self.mcp.resource("grants://search/history")
-        async def get_search_history() -> str:
+        async def get_search_history() -> Dict[str, Any]:
             """Get recent search history."""
             # Return last 20 searches
             return {
@@ -136,7 +136,7 @@ class GrantsAnalysisServer:
         
         logger.info("Registered all resources")
     
-    def _register_prompts(self):
+    def _register_prompts(self) -> None:
         """Register all available prompts with the MCP server."""
         
         @self.mcp.prompt("landscape_analysis")

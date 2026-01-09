@@ -45,14 +45,14 @@ class InMemoryCache:
         """Check if a cache entry has expired."""
         return time.time() - timestamp > self.ttl
     
-    def _evict_oldest(self):
+    def _evict_oldest(self) -> None:
         """Evict the oldest entry from cache (LRU)."""
         if self._cache:
             evicted_key, _ = self._cache.popitem(last=False)
             self._stats["evictions"] += 1
             logger.debug(f"Evicted oldest cache entry: {evicted_key}")
     
-    def _cleanup_expired(self):
+    def _cleanup_expired(self) -> None:
         """Remove all expired entries from cache."""
         expired_keys = []
         current_time = time.time()
@@ -69,7 +69,7 @@ class InMemoryCache:
             logger.debug(f"Cleaned up {len(expired_keys)} expired entries")
     
     @staticmethod
-    def generate_cache_key(*args, **kwargs) -> str:
+    def generate_cache_key(*args: Any, **kwargs: Any) -> str:
         """
         Generate a cache key from arguments.
         
@@ -119,7 +119,7 @@ class InMemoryCache:
             logger.debug(f"Cache miss: {key}")
             return None
     
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """
         Set a value in cache.
         

@@ -7,8 +7,8 @@ import numpy as np
 
 from mcp_server.models.grants_schemas import OpportunityV1
 from mcp_server.models.analytics_schemas import (
-    GrantScore, HiddenOpportunityScore, BatchScoreResult, 
-    ScoreCalculationRequest, IndustryConstants
+    GrantScore, HiddenOpportunityScore, BatchScoreResult,
+    ScoreCalculationRequest, IndustryConstants, ScoreBreakdown
 )
 from mcp_server.tools.analytics.metrics.competition_metrics import CompetitionIndexCalculator
 from mcp_server.tools.analytics.metrics.success_metrics import SuccessProbabilityCalculator
@@ -277,12 +277,11 @@ class GrantScoringEngine:
         self,
         opportunity: OpportunityV1,
         user_profile: Optional[Dict] = None
-    ) -> 'ScoreBreakdown':
+    ) -> ScoreBreakdown:
         """
         Calculate technical fit score (simplified implementation).
         This is a basic implementation - could be enhanced with NLP/ML.
         """
-        from mcp_server.models.analytics_schemas import ScoreBreakdown
         
         try:
             fit_score = 50.0  # Default neutral fit

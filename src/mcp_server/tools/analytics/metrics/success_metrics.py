@@ -19,7 +19,7 @@ class SuccessProbabilityCalculator:
     historical data, eligibility fit, and technical alignment.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.constants = IndustryConstants()
     
     def calculate_base_success_probability(

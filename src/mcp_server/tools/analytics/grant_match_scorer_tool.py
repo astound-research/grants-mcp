@@ -7,7 +7,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from mcp_server.models.grants_schemas import OpportunityV1, GrantsAPIResponse
-from mcp_server.models.analytics_schemas import ScoreCalculationRequest, BatchScoreResult
+from mcp_server.models.analytics_schemas import ScoreCalculationRequest, BatchScoreResult, GrantScore
 from mcp_server.tools.analytics.scoring_engine import GrantScoringEngine
 from mcp_server.tools.analytics.database.session_manager import AsyncSQLiteManager
 from mcp_server.tools.utils.cache_manager import InMemoryCache
@@ -16,7 +16,7 @@ from mcp_server.tools.utils.cache_utils import CacheKeyGenerator
 logger = logging.getLogger(__name__)
 
 
-def format_score_summary(scores: List['GrantScore']) -> str:
+def format_score_summary(scores: List[GrantScore]) -> str:
     """
     Format grant scores for display.
     
@@ -85,7 +85,7 @@ def format_score_summary(scores: List['GrantScore']) -> str:
     return "\n".join(summary_lines)
 
 
-def format_detailed_score(score: 'GrantScore') -> str:
+def format_detailed_score(score: GrantScore) -> str:
     """
     Format a detailed individual score breakdown.
     

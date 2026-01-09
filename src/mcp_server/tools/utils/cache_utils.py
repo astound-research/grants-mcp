@@ -3,7 +3,7 @@
 import hashlib
 import json
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class CacheKeyGenerator:
             return str(value)
     
     @classmethod
-    def generate_simple(cls, tool_name: str, **params) -> str:
+    def generate_simple(cls, tool_name: str, **params: Any) -> str:
         """
         Generate a simple cache key for basic queries.
         
@@ -94,7 +94,7 @@ class CacheKeyGenerator:
         return cls.generate_hash(tool_name, **params)
     
     @classmethod
-    def generate_hash(cls, tool_name: str, **params) -> str:
+    def generate_hash(cls, tool_name: str, **params: Any) -> str:
         """
         Generate a hashed cache key for complex queries.
         
@@ -180,7 +180,7 @@ class CacheKeyGenerator:
         cls,
         tool_name: str,
         time_bucket: int = 3600,
-        **params
+        **params: Any
     ) -> str:
         """
         Generate a temporal cache key that expires based on time buckets.
@@ -303,11 +303,11 @@ class CacheStrategy:
 
 
 def optimize_cache_for_tool(
-    cache,
+    cache: Any,
     tool_name: str,
     params: Dict[str, Any],
     generate_key_method: str = "simple"
-) -> tuple[str, int]:
+) -> Tuple[str, int]:
     """
     Helper function to optimize cache usage for a specific tool.
     

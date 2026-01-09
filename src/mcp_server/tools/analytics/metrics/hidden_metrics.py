@@ -19,7 +19,7 @@ class HiddenOpportunityCalculator:
     timing, or cross-category factors.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.constants = IndustryConstants()
     
     def calculate_visibility_index(

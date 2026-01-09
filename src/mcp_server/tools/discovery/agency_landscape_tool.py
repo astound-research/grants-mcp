@@ -5,10 +5,10 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
-from src.mcp_server.models.grants_schemas import AgencyV1, GrantsAPIResponse, OpportunityV1
-from src.mcp_server.tools.utils.api_client import APIError, SimplerGrantsAPIClient
-from src.mcp_server.tools.utils.cache_manager import InMemoryCache
-from src.mcp_server.tools.utils.cache_utils import CacheKeyGenerator
+from mcp_server.models.grants_schemas import AgencyV1, GrantsAPIResponse, OpportunityV1
+from mcp_server.tools.utils.api_client import APIError, SimplerGrantsAPIClient
+from mcp_server.tools.utils.cache_manager import InMemoryCache
+from mcp_server.tools.utils.cache_utils import CacheKeyGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -27,86 +27,87 @@ def analyze_agency_portfolio(
     Returns:
         Analysis of the agency's portfolio
     """
-    portfolio = {
-        "agency_code": agency_code,
-        "total_opportunities": len(opportunities),
-        "status_breakdown": defaultdict(int),
-        "category_breakdown": defaultdict(int),
-        "funding_stats": {
-            "total_estimated_funding": 0,
-            "average_award_ceiling": 0,
-            "average_award_floor": 0,
-            "min_award": None,
-            "max_award": None,
-        },
-        "deadline_distribution": defaultdict(int),
-        "eligibility_patterns": defaultdict(int),
+    status_breakdown: Dict[str, int] = defaultdict(int)
+    category_breakdown: Dict[str, int] = defaultdict(int)
+    deadline_distribution: Dict[str, int] = defaultdict(int)
+    eligibility_patterns: Dict[str, int] = defaultdict(int)
+    funding_stats: Dict[str, Optional[float]] = {
+        "total_estimated_funding": 0,
+        "average_award_ceiling": 0,
+        "average_award_floor": 0,
+        "min_award": None,
+        "max_award": None,
     }
-    
-    award_ceilings = []
-    award_floors = []
-    total_funding = 0
-    
+
+    award_ceilings: List[float] = []
+    award_floors: List[float] = []
+    total_funding: float = 0
+
     for opp in opportunities:
         # Status breakdown
-        portfolio["status_breakdown"][opp.opportunity_status] += 1
-        
+        status_breakdown[opp.opportunity_status] += 1
+
         # Category breakdown
         if opp.category:
-            portfolio["category_breakdown"][opp.category] += 1
-        
+            category_breakdown[opp.category] += 1
+
         # Funding analysis
         summary = opp.summary
         if summary.award_ceiling:
             award_ceilings.append(summary.award_ceiling)
-            if portfolio["funding_stats"]["max_award"] is None:
-                portfolio["funding_stats"]["max_award"] = summary.award_ceiling
+            if funding_stats["max_award"] is None:
+                funding_stats["max_award"] = summary.award_ceiling
             else:
-                portfolio["funding_stats"]["max_award"] = max(
-                    portfolio["funding_stats"]["max_award"],
+                funding_stats["max_award"] = max(
+                    funding_stats["max_award"],
                     summary.award_ceiling
                 )
-        
+
         if summary.award_floor:
             award_floors.append(summary.award_floor)
-            if portfolio["funding_stats"]["min_award"] is None:
-                portfolio["funding_stats"]["min_award"] = summary.award_floor
+            if funding_stats["min_award"] is None:
+                funding_stats["min_award"] = summary.award_floor
             else:
-                portfolio["funding_stats"]["min_award"] = min(
-                    portfolio["funding_stats"]["min_award"],
+                funding_stats["min_award"] = min(
+                    funding_stats["min_award"],
                     summary.award_floor
                 )
-        
+
         if summary.estimated_total_program_funding:
             total_funding += summary.estimated_total_program_funding
-        
+
         # Deadline distribution
         if summary.close_date:
             try:
                 # Extract month from close date
                 month = summary.close_date.split("-")[1] if "-" in summary.close_date else "Unknown"
-                portfolio["deadline_distribution"][f"Month_{month}"] += 1
+                deadline_distribution[f"Month_{month}"] += 1
             except:
                 pass
-        
+
         # Eligibility patterns (simplified)
         if summary.applicant_types:
             for applicant_type in summary.applicant_types:
-                portfolio["eligibility_patterns"][applicant_type] += 1
-    
+                eligibility_patterns[applicant_type] += 1
+
     # Calculate averages
     if award_ceilings:
-        portfolio["funding_stats"]["average_award_ceiling"] = sum(award_ceilings) / len(award_ceilings)
+        funding_stats["average_award_ceiling"] = sum(award_ceilings) / len(award_ceilings)
     if award_floors:
-        portfolio["funding_stats"]["average_award_floor"] = sum(award_floors) / len(award_floors)
-    portfolio["funding_stats"]["total_estimated_funding"] = total_funding
-    
-    # Convert defaultdicts to regular dicts for JSON serialization
-    portfolio["status_breakdown"] = dict(portfolio["status_breakdown"])
-    portfolio["category_breakdown"] = dict(portfolio["category_breakdown"])
-    portfolio["deadline_distribution"] = dict(portfolio["deadline_distribution"])
-    portfolio["eligibility_patterns"] = dict(portfolio["eligibility_patterns"])
-    
+        funding_stats["average_award_floor"] = sum(award_floors) / len(award_floors)
+    funding_stats["total_estimated_funding"] = total_funding
+
+    # Build portfolio dictionary
+    portfolio: Dict[str, Any] = {
+        "agency_code": agency_code,
+        "total_opportunities": len(opportunities),
+        "status_breakdown": dict(status_breakdown),
+        "category_breakdown": dict(category_breakdown),
+        "funding_stats": funding_stats,
+        "deadline_distribution": dict(deadline_distribution),
+        "eligibility_patterns": dict(eligibility_patterns),
+    }
+
     return portfolio
 
 
@@ -122,7 +123,7 @@ def identify_cross_agency_patterns(
     Returns:
         Cross-agency analysis
     """
-    patterns = {
+    patterns: Dict[str, Any] = {
         "overlap_areas": [],
         "unique_specializations": {},
         "collaboration_patterns": {},
@@ -286,12 +287,12 @@ def register_agency_landscape_tool(mcp: Any, context: Dict[str, Any]) -> None:
             cached_result = cache.get(cache_key)
             if cached_result:
                 logger.info("Cache hit for agency landscape analysis")
-                return cached_result["report"]
+                return str(cached_result["report"])
             
             logger.info(f"Analyzing agency landscape (max_agencies={max_agencies})")
             
             # Prepare filters for agency search
-            agency_filters = {}
+            agency_filters: Dict[str, Any] = {}
             if focus_agencies:
                 # Note: API might not support direct agency code filtering in agency search
                 # We'll filter the results manually
@@ -362,24 +363,24 @@ def register_agency_landscape_tool(mcp: Any, context: Dict[str, Any]) -> None:
             cross_agency_analysis = identify_cross_agency_patterns(agency_profiles)
             
             # Overall funding landscape
-            funding_landscape = {
-                "total_active_agencies": len(agencies),
-                "funding_distribution": {},
-                "category_specialization": defaultdict(int),
-            }
-            
+            category_specialization: Dict[str, int] = defaultdict(int)
+
             # Aggregate category specialization
             for profile in agency_profiles.values():
                 for category, count in profile.get("category_breakdown", {}).items():
-                    funding_landscape["category_specialization"][category] += count
-            
-            funding_landscape["category_specialization"] = dict(
-                sorted(
-                    funding_landscape["category_specialization"].items(),
-                    key=lambda x: x[1],
-                    reverse=True
-                )
-            )
+                    category_specialization[category] += count
+
+            funding_landscape: Dict[str, Any] = {
+                "total_active_agencies": len(agencies),
+                "funding_distribution": {},
+                "category_specialization": dict(
+                    sorted(
+                        category_specialization.items(),
+                        key=lambda x: x[1],
+                        reverse=True
+                    )
+                ),
+            }
             
             # Generate report
             report = format_agency_landscape_report(

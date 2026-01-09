@@ -18,7 +18,7 @@ class ROICalculator:
     relative to the effort and resources required.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.constants = IndustryConstants()
     
     def estimate_application_cost(

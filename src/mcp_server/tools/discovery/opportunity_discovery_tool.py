@@ -4,10 +4,10 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
-from src.mcp_server.models.grants_schemas import GrantsAPIResponse, OpportunityV1
-from src.mcp_server.tools.utils.api_client import APIError
-from src.mcp_server.tools.utils.cache_manager import InMemoryCache
-from src.mcp_server.tools.utils.cache_utils import CacheKeyGenerator
+from mcp_server.models.grants_schemas import GrantsAPIResponse, OpportunityV1
+from mcp_server.tools.utils.api_client import APIError
+from mcp_server.tools.utils.cache_manager import InMemoryCache
+from mcp_server.tools.utils.cache_utils import CacheKeyGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -130,66 +130,72 @@ def calculate_summary_statistics(opportunities: List[OpportunityV1]) -> Dict[str
     Returns:
         Summary statistics
     """
-    stats = {
-        "agencies": {},
-        "funding_ranges": {
-            "min_floor": None,
-            "max_ceiling": None,
-            "avg_award": None,
-        },
-        "deadline_distribution": {},
-        "category_breakdown": {},
-        "status_breakdown": {},
+    agencies: Dict[str, int] = {}
+    funding_ranges: Dict[str, Optional[float]] = {
+        "min_floor": None,
+        "max_ceiling": None,
+        "avg_award": None,
     }
-    
-    total_awards = []
-    
+    deadline_distribution: Dict[str, int] = {}
+    category_breakdown: Dict[str, int] = {}
+    status_breakdown: Dict[str, int] = {}
+
+    total_awards: List[float] = []
+
     for opp in opportunities:
         # Agency stats
         agency = opp.agency_code
-        stats["agencies"][agency] = stats["agencies"].get(agency, 0) + 1
-        
+        agencies[agency] = agencies.get(agency, 0) + 1
+
         # Category stats
         category = opp.category or "Uncategorized"
-        stats["category_breakdown"][category] = stats["category_breakdown"].get(category, 0) + 1
-        
+        category_breakdown[category] = category_breakdown.get(category, 0) + 1
+
         # Status stats
         status = opp.opportunity_status
-        stats["status_breakdown"][status] = stats["status_breakdown"].get(status, 0) + 1
+        status_breakdown[status] = status_breakdown.get(status, 0) + 1
         
         # Funding stats
         if opp.summary.award_floor:
-            if stats["funding_ranges"]["min_floor"] is None:
-                stats["funding_ranges"]["min_floor"] = opp.summary.award_floor
+            if funding_ranges["min_floor"] is None:
+                funding_ranges["min_floor"] = opp.summary.award_floor
             else:
-                stats["funding_ranges"]["min_floor"] = min(
-                    stats["funding_ranges"]["min_floor"],
+                funding_ranges["min_floor"] = min(
+                    funding_ranges["min_floor"],
                     opp.summary.award_floor
                 )
-        
+
         if opp.summary.award_ceiling:
-            if stats["funding_ranges"]["max_ceiling"] is None:
-                stats["funding_ranges"]["max_ceiling"] = opp.summary.award_ceiling
+            if funding_ranges["max_ceiling"] is None:
+                funding_ranges["max_ceiling"] = opp.summary.award_ceiling
             else:
-                stats["funding_ranges"]["max_ceiling"] = max(
-                    stats["funding_ranges"]["max_ceiling"],
+                funding_ranges["max_ceiling"] = max(
+                    funding_ranges["max_ceiling"],
                     opp.summary.award_ceiling
                 )
             total_awards.append(opp.summary.award_ceiling)
-        
+
         # Deadline distribution
         if opp.summary.close_date:
             # Extract month from close date
             try:
                 month = opp.summary.close_date.split("-")[1] if "-" in opp.summary.close_date else "Unknown"
-                stats["deadline_distribution"][month] = stats["deadline_distribution"].get(month, 0) + 1
+                deadline_distribution[month] = deadline_distribution.get(month, 0) + 1
             except:
                 pass
-    
+
     # Calculate average award
     if total_awards:
-        stats["funding_ranges"]["avg_award"] = sum(total_awards) / len(total_awards)
-    
+        funding_ranges["avg_award"] = sum(total_awards) / len(total_awards)
+
+    stats: Dict[str, Any] = {
+        "agencies": agencies,
+        "funding_ranges": funding_ranges,
+        "deadline_distribution": deadline_distribution,
+        "category_breakdown": category_breakdown,
+        "status_breakdown": status_breakdown,
+    }
+
     return stats
 
 

@@ -52,7 +52,7 @@ def format_hidden_opportunities_report(
     ])
     
     # Group by opportunity type for better organization
-    by_type = {}
+    by_type: Dict[str, List[HiddenOpportunityScore]] = {}
     for opp in hidden_opportunities:
         opp_type = opp.opportunity_type
         if opp_type not in by_type:
